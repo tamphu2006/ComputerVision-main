@@ -483,7 +483,7 @@ class ImageProcessor:
     
     def enhance_plate_image(self, plate_img):
         """
-        Complete preprocessing pipeline: grayscale + Gaussian + edge detection
+        Enhance license plate image for better OCR
         
         Args:
             plate_img: License plate image
@@ -556,7 +556,7 @@ class ImageProcessor:
     
     def classify_character(self, char_img, classifier):
         """
-        Postprocess results
+        Classify a single character using trained classifier
         
         Args:
             char_img: Character image
