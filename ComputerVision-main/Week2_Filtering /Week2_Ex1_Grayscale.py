@@ -7,12 +7,11 @@ class ImageProcessor:
     Class for processing images from camera feed
     """
     frame = None  # BGR numpy array
-  def __init__(self, frame=None):
+    def __init__(self, frame=None):
         """Initialize image processor"""
         self.frame = frame
         pass
-
-  def convert_to_grayscale(self, bgr_image):
+    def convert_to_grayscale(self, bgr_image):
         if bgr_image is None:
             return None
         
