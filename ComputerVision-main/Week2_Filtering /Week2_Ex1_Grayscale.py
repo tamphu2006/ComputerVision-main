@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-class ImageProcessor:
+class GrayscaleProcessor:
     """
     Class for processing images from camera feed
     """
