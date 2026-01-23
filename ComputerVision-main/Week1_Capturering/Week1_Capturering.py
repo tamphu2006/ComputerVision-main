@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 
-class ImageProcessor:
+class CaptureSaveImgProcessor:
     """
     Class for processing images from camera feed
     """
@@ -65,3 +65,4 @@ class ImageProcessor:
         """
         # TODO: Implement postprocessing
         pass
+
