@@ -26,12 +26,20 @@ class ImageProcessor:
         if bgr_img is None:
             raise ValueError("Input frame is None")
 
-        processed_img = self.convert_to_grayscale(bgr_img)
-
         start_time = time.perf_counter()
+
+        h, w = bgr_img.shape[:2]
+        side = int(min(h, w) * 0.5)
+        cx, cy = w // 2, h // 2
+        x0 = max(0, cx - side // 2)
+        y0 = max(0, cy - side // 2)
+        crop = bgr_img[y0:y0+side, x0:x0+side].copy()
+
+        processed = cv2.resize(crop, (256, 256))
+
         process_time_ms = (time.perf_counter() - start_time) * 1000
 
-        return processed_img, process_time_ms
+        return processed, process_time_ms
     def preprocess(self, bgr_img):
         """
         Preprocess image (e.g., resize, normalize)
@@ -57,11 +65,3 @@ class ImageProcessor:
         """
         # TODO: Implement postprocessing
         pass
-    
-    def convert_to_grayscale(self, bgr_image):
-        if bgr_image is None:
-            return None
-        
-        gray_img = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
-        return gray_img
-    
