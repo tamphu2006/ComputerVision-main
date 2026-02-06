@@ -4,6 +4,7 @@ import threading
 import time
 import base64
 import numpy as np
+import os
 from process import ImageProcessor
 from camera import VideoCamera
 app = Flask(__name__)
@@ -67,17 +68,31 @@ def set_source():
 
 @app.route('/capture', methods=['POST'])
 def capture():
-    # payload: { cam_id: int }
+    """
+    Capture image from camera and process it
+    
+    Payload: { 
+        cam_id: int, 
+        filter_name: str (optional, default='grayscale'),
+        auto_count: int (optional, for auto-capture sequence),
+        sequence_num: int (optional, current image number in sequence)
+    }
+    """
     data = request.get_json()
     cam_id = int(data.get('cam_id'))
+    filter_name = data.get('filter_name', 'grayscale')
+    auto_count = data.get('auto_count', 0)  # 0 means single capture
+    sequence_num = data.get('sequence_num', 1)
+    
     if cam_id not in cameras:
         return jsonify({'ok': False, 'error': 'invalid cam_id'}), 400
+    
     cam = cameras[cam_id]
     frame = cam.get_frame_bgr()
     if frame is None:
         return jsonify({'ok': False, 'error': 'no frame yet'}), 400
 
-    # Convert BGR -> JPEG base64 for immediate display
+    # Convert BGR -> JPEG base64 for immediate display (original image)
     ret, jpg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
     if not ret:
         return jsonify({'ok': False, 'error': 'encode_failed'}), 500
@@ -85,25 +100,48 @@ def capture():
     b64 = base64.b64encode(raw).decode('utf-8')
     data_uri = 'data:image/jpeg;base64,' + b64
 
-    # Placeholder processing function: crop center square (you can replace)
-    processed, process_time_ms = process_image_placeholder(frame)
-
-    ret2, jpg2 = cv2.imencode('.jpg', processed, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
-    raw2 = jpg2.tobytes()
-    b642 = base64.b64encode(raw2).decode('utf-8')
-    processed_uri = 'data:image/jpeg;base64,' + b642
-
-    return jsonify({'ok': True, 'image': data_uri, 'processed': processed_uri, 'process_time_ms': round(process_time_ms, 2)})
-
-def process_image_placeholder(bgr_img):
-    """
-    Placeholder image processing:
-    - crop a center square at 50% of min(height,width)
-    Replace this with your real processing.
-    """
-    print("Processing image placeholder...")
-    processed_frame, process_time_ms = ImageProcessor(bgr_img).process_frame(bgr_img)
-    return processed_frame, process_time_ms
+    # Process image using ImageProcessor with selected filter
+    try:
+        processor = ImageProcessor()
+        processed, results, process_time_ms = processor.process_frame(frame, filter_name)
+        
+        # Convert processed image to base64
+        ret2, jpg2 = cv2.imencode('.jpg', processed, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+        if not ret2:
+            return jsonify({'ok': False, 'error': 'processed_encode_failed'}), 500
+        raw2 = jpg2.tobytes()
+        b642 = base64.b64encode(raw2).decode('utf-8')
+        processed_uri = 'data:image/jpeg;base64,' + b642
+        
+        # Save images to disk if auto_count > 0
+        if auto_count > 0:
+            save_processor = ImageProcessor()
+            save_dir = "CapturedImage"
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            
+            # Save raw image only on first capture
+            if sequence_num == 1:
+                raw_filename = f"{filter_name}_cam{cam_id}_raw.bmp"
+                raw_path = os.path.join(save_dir, raw_filename)
+                cv2.imwrite(raw_path, frame)
+            
+            # Save processed image with naming convention including camera ID
+            processed_filename = f"{filter_name}_cam{cam_id}_{sequence_num}_{int(process_time_ms)}ms.bmp"
+            processed_path = os.path.join(save_dir, processed_filename)
+            cv2.imwrite(processed_path, processed)
+        
+        return jsonify({
+            'ok': True, 
+            'image': data_uri, 
+            'processed': processed_uri, 
+            'process_time_ms': round(process_time_ms, 2),
+            'results': results,
+            'filter_name': filter_name,
+            'sequence_num': sequence_num
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Processing failed: {str(e)}'}), 500
 
 if __name__ == '__main__':
     # debug mode off in production
